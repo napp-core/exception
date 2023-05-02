@@ -5,26 +5,31 @@
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "scripts": {
+    "upversion": "npm version patch",
     "tsc": "tsc -p tsconfig.json",
     "clear": "rimraf lib/**/* --glob",
     "prebuild": "npm run clear",
     "build": "tsc -p tsconfig.lib.json",
     "test": "mocha -r ts-node/register test/**.test.ts",
-    "prepush": "npm run build",
+    "prepush": "npm run upversion & npm run build",
     "push": "npm publish --access=public"
   },
   "author": "farcek@gmail.com",
   "license": "ISC",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Farcek/napp.git"
+    "url": "git+https://github.com/napp-core/exception.git"
   },
   "engines": {
     "node": ">=6.10.2"
   },
   "keywords": [
     "error",
-    "exception"
+    "errorы",
+    "exception",
+    "common error",
+    "error serialization",
+    "server - cient  sync"
   ],
   "devDependencies": {
     "@testdeck/mocha": "^0.3.3",
