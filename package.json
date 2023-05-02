@@ -1,6 +1,6 @@
 {
   "name": "@napp/exception",
-  "version": "4.1.0",
+  "version": "4.1.1",
   "description": "common exception. node application common library. server - client sync error",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
