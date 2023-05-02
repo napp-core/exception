@@ -10,54 +10,41 @@ javascript error common library. basic error library
 
 ``` typescript
 
-let err = new Exception('message');
-
-let obj = err.toPlan();
+let err = new NotfoundException("message").setCode('err.test.001');
+let jsonStr = JSON.stringify(err);
 // obj output
 //
 // {
-//      type: "Exception",
-//      message: "message"
+//      "ref": "exception",
+//      "message": "message",
+//      "code" : "err.test.001"
 // }
 
-let errStr = JSON.stringify(err)
-// errStr output
-//
-// {
-//      "type": "Exception",
-//      "message": "message"
-// }
+let nErr = Exception.from(JSON.parse(jsonStr));
+
+assert.ok(nErr instanceof Error, 'nErr instanceof Error')
+assert.ok(nErr instanceof Exception, 'nErr instanceof Exception')
+assert.ok(nErr instanceof NotfoundException, 'nErr instanceof NotfoundException')
+assert.equal(nErr.message,'message')
+assert.equal(nErr.message, err.message)
+assert.equal(nErr.code, 'err.test.001')
+assert.equal(nErr.code, err.code)
 
 ```
-
 
 # avilable error
 
 ``` typescript
 
-let err = new Exception('err1','msg1');
-// err = {type: "err1", message: "msg1"}
-
-let err1 = new NotFoundException('message1');
-// err2 = {type: "notfound", message: "message1"}
-
-let err2 = new NotSupportedException('message2')
-// err2 = {type: "notsupported", message: "message2"}
-
-let err31 = new AuthenticationException();
-// err31 = {type: "authentication", message: "requared authentication"}
-
-let err32 = new AuthenticationException("message32");
-// err32 = {type: "authentication", message: "message32"}
-
-let err4 = new AuthorizationException('message4');
-// err4 = {type: "authorization", message: "message4"}
-
-let err5 = new ServerException("message5");
-// err5 = {type: "server", message: "message5"}
-
-let err6 = new ValidationException("message6");
-// err6 = {type: "validation", message: "message6"}
+new Exception('error message');
+new AuthenticationException('error message');
+new AuthorizationException('error message');
+new NetworkException('error message');
+new NotfoundException('error message');
+new NotSupportedException('error message');
+new ServerException('error message');
+new TimeoutException('error message');
+new ValidationException('error message');
 
 ```
 
@@ -70,19 +57,21 @@ class MyError extends Exception {
 
     other: string;
     constructor(m: string, other: string) {
-        super(m, "MyError");
+        super(m);
         this.other = other;
     }
 }
-Exception.register<MyError>("MyError", (src) => {
+
+// json to error convertor
+Exception.register(MyError, (src) => {
     return new MyError(src.message, src.other);
 })
 
-let obj = new MyError('msg1', 'other1').toPlan();
+let obj = new MyError('msg1', 'other1');
 // obj output
 //
 // {
-//      type: "MyError",
+//      ref: "Exception.MyError",
 //      message: "msg1",
 //      other : "other1"
 // }
@@ -90,12 +79,10 @@ let obj = new MyError('msg1', 'other1').toPlan();
 
 let e1 = Exception.from(obj);
 
-
-
 if (e1 instanceof MyError) {
-    assert.equal("MyError", e1.type)
-    assert.equal("custom1", e1.message)
-    assert.equal("val1", e1.other)
+    assert.equal("Exception.MyError", e1.ref)
+    assert.equal("msg1", e1.message)
+    assert.equal("other1", e1.other)
 } else {
     throw new Error('not working convert');
 }
