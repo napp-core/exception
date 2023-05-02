@@ -75,6 +75,10 @@ export class Exception extends Error implements IException {
         this.status = status;
         return this;
     }
+    setCode(code: string) {
+        this.code = code;
+        return this;
+    }
 
     setSrc(src: any) {
         this.src = src;
@@ -98,7 +102,7 @@ export class Exception extends Error implements IException {
         if (this.traceid) obj.traceid = this.traceid;
         if (have_stack && this.stack) obj.stack = this.stack;
         if (this.status) obj.status = this.status;
-        if (this.code) obj.status = this.code;
+        if (this.code) obj.code = this.code;
         if (Array.isArray(this.exceptions)) {
             obj.exceptions = this.exceptions.map(it => Exception.from(it).toPlan());
         }
@@ -138,7 +142,7 @@ export class Exception extends Error implements IException {
         if (err?.traceid) e.traceid = err.traceid;
         if (err?.stack) e.stack = err.stack;
         if (err?.status) e.status = err.status;
-        if (err?.code) e.status = err.code;
+        if (err?.code) e.code = err.code;
 
         if (Array.isArray(err.exceptions)) {
             e.exceptions = err.exceptions.map((it: any) => Exception.from(it));
