@@ -11,18 +11,19 @@ class JsonTest {
     @test
     async basic() {
 
-        let e = new Exception("message");
+        let err = new Exception("message");
         let m = new MyError("message", ' 11');
 
 
-        let jo = JSON.parse(JSON.stringify(e));
+        let jo = JSON.parse(JSON.stringify(err));
         let jm = JSON.parse(JSON.stringify(m));
 
 
-        assert.equal(e.message, jo.message)
+        assert.equal(err.message, jo.message)
         assert.equal(m.message, jm.message)
         assert.equal(m.other, jm.other)
 
+        
 
     }
 
@@ -47,22 +48,23 @@ class JsonTest {
     @test
     async convert() {
 
-        let e = new NotfoundException("message").setHelp('h1');
+        let err = new NotfoundException("message").setCode('err.test.001');
+
+        let jsonStr = JSON.stringify(err);
+
+        let nErr = Exception.from(JSON.parse(jsonStr));
 
 
-        let json = JSON.stringify(e);
-
-        let jo = Exception.from(JSON.parse(json));
 
 
-
-
-        assert.ok(jo instanceof Error, 'jo instanceof Error')
-        assert.ok(jo instanceof Exception, 'jo instanceof Exception')
-        assert.ok(jo instanceof ValidationException, 'jo instanceof ValidationException')
-        assert.ok(jo instanceof NotfoundException, 'jo instanceof NotfoundException')
-        assert.equal(e.message, jo.message)
-        assert.equal(e.help, jo.help)
+        assert.ok(nErr instanceof Error, 'nErr instanceof Error')
+        assert.ok(nErr instanceof Exception, 'nErr instanceof Exception')
+        assert.ok(nErr instanceof ValidationException, 'nErr instanceof ValidationException')
+        assert.ok(nErr instanceof NotfoundException, 'nErr instanceof NotfoundException')
+        assert.equal(nErr.message,'message')
+        assert.equal(nErr.message,err.message)
+        assert.equal(nErr.code, 'err.test.001')
+        assert.equal(nErr.code, err.code)
 
 
     }
