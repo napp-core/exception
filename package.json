@@ -30,6 +30,7 @@
     "common error",
     "error serialization"
   ],
+  "dependencies": {},
   "devDependencies": {
     "@testdeck/mocha": "latest",
     "@types/mocha": "latest",
