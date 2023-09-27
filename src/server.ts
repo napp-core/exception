@@ -1,18 +1,18 @@
 import { Exception } from './exception';
+import { ExceptionNames } from './names';
 
 
+/**
+ * @deprecated use - new Exception('error message', ExceptionNames.Server)
+ */
 export class ServerException extends Exception {
 
-  
+
   constructor(message: string) {
-    super(message);
-    super.setStatus(500);
+    super(message, {name:ExceptionNames.Server});
+
 
     Error.captureStackTrace(this, ServerException);
     Object.setPrototypeOf(this, ServerException.prototype);
   }
 }
-
-Exception.registerByName(ServerException,'server', (src) => {
-  return new ServerException(src.message);
-})

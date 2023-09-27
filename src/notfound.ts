@@ -1,18 +1,17 @@
-import { ValidationException } from "./validation";
+import { Exception } from "./exception";
+import { ExceptionNames } from "./names";
 
 
-
-export class NotfoundException extends ValidationException {
+/**
+ * @deprecated use - new Exception('error message', ExceptionNames.Notfound)
+ */
+export class NotfoundException extends Exception {
 
     constructor(message: string) {
-        super(message);
-        super.setStatus(404);
+        super(message, {name:ExceptionNames.Notfound});
 
         Error.captureStackTrace(this, NotfoundException);
         Object.setPrototypeOf(this, NotfoundException.prototype);
     }
 }
 
-ValidationException.registerByName(NotfoundException, 'notfound', (src) => {
-    return new NotfoundException(src.message);
-})

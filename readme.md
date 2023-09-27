@@ -3,88 +3,75 @@
 javascript error common library. basic error library
 
 - error -> json string -> error
-- customer error
+- error message template
+
 
 
 # basic error
 
 ``` typescript
 
-let err = new NotfoundException("message").setCode('err.test.001');
-let jsonStr = JSON.stringify(err);
-// obj output
-//
-// {
-//      "ref": "exception",
-//      "message": "message",
-//      "code" : "err.test.001"
-// }
+    let err = new Exception("message", {
+        name: 'err.test.001'
+    })
 
-let nErr = Exception.from(JSON.parse(jsonStr));
+    let jsonStr = JSON.stringify(err);
 
-assert.ok(nErr instanceof Error, 'nErr instanceof Error')
-assert.ok(nErr instanceof Exception, 'nErr instanceof Exception')
-assert.ok(nErr instanceof NotfoundException, 'nErr instanceof NotfoundException')
-assert.equal(nErr.message,'message')
-assert.equal(nErr.message, err.message)
-assert.equal(nErr.code, 'err.test.001')
-assert.equal(nErr.code, err.code)
+    let nErr = Exception.from(JSON.parse(jsonStr));
 
-```
 
-# avilable error
+    assert.ok(nErr instanceof Exception, 'nErr instanceof Exception')
+    assert.equal(nErr.message, 'message')
+    assert.equal(nErr.message, err.message)
 
-``` typescript
-
-new Exception('error message');
-new AuthenticationException('error message');
-new AuthorizationException('error message');
-new NetworkException('error message');
-new NotfoundException('error message');
-new NotSupportedException('error message');
-new ServerException('error message');
-new TimeoutException('error message');
-new ValidationException('error message');
+    assert.equal(nErr.name, 'err.test.001')
+    assert.equal(nErr.name, err.name)
 
 ```
 
 
-
-# custom error
+# use cause 
 
 ``` typescript
-class MyError extends Exception {
 
-    other: string;
-    constructor(m: string, other: string) {
-        super(m);
-        this.other = other;
+    try {
+        throw new Exception('login need', { name: 'src' })
+    } catch (error) {
+
+        let err = new Exception('l2').setCause(Exception.from(error))
+
+
+        assert.equal(err.cause?.name, 'src');
+        assert.equal(err.cause?.message, 'login need');
+
+        let json = JSON.stringify(err);
+        let nerr = Exception.from(JSON.parse(json));
+
+        assert.equal(nerr.name, ExceptionNames.Exception);
+        assert.ok(nerr instanceof Exception, 'jo instanceof Exception')
+
+
+        let loginerr = Exception.from(nerr.cause);
+
+        assert.equal(loginerr.message, 'login need')
+        assert.ok(loginerr instanceof Exception, 'loginerr instanceof Exception')
+
+        assert.equal(loginerr.name, 'src');
     }
-}
-
-// json to error convertor
-Exception.register(MyError, (src) => {
-    return new MyError(src.message, src.other);
-})
-
-let obj = new MyError('msg1', 'other1');
-// obj output
-//
-// {
-//      ref: "Exception.MyError",
-//      message: "msg1",
-//      other : "other1"
-// }
-
-
-let e1 = Exception.from(obj);
-
-if (e1 instanceof MyError) {
-    assert.equal("Exception.MyError", e1.ref)
-    assert.equal("msg1", e1.message)
-    assert.equal("other1", e1.other)
-} else {
-    throw new Error('not working convert');
-}
 
 ```
+
+# error message template
+
+``` typescript
+
+    let e = new Exception(["hi ${a}", { a: 'farcek' }]);
+    let e1 = new Exception(["hi ${a}", { a: 'saraa' }]);
+    let e2 = new Exception(["hi ${b}", { a: 'b is miss' }]);
+
+    assert.equal(e.toMessage(), 'hi farcek')
+    assert.equal(e1.toMessage(), 'hi saraa')
+    assert.equal(e2.toMessage(), 'hi ${b}')
+
+```
+

@@ -3,27 +3,32 @@ import { suite, test } from "@testdeck/mocha";
 
 import assert from "assert";
 import { AuthenticationException, Exception, NotfoundException, ValidationException } from "../src";
-import { MyError } from './myerror';
+import { ExceptionNames } from '../src/names';
+
 
 
 @suite
 class JsonTest {
     @test
     async basic() {
+        Exception.__to_json_have_stack = true
+        let err = new Exception("message")
+            .setName('n1').setStack('n2');
 
-        let err = new Exception("message");
-        let m = new MyError("message", ' 11');
 
 
         let jo = JSON.parse(JSON.stringify(err));
-        let jm = JSON.parse(JSON.stringify(m));
 
 
+
+        assert.equal(err.message, "message")
         assert.equal(err.message, jo.message)
-        assert.equal(m.message, jm.message)
-        assert.equal(m.other, jm.other)
+        assert.equal(err.name, "n1")
+        assert.equal(err.name, jo.name)
+        assert.equal(err.stack, "n2")
+        assert.equal(err.stack, jo.stack)
 
-        
+
 
     }
 
@@ -33,39 +38,40 @@ class JsonTest {
 
         let s = e1.toPlan();
         assert.equal(s.message, 'test')
-        assert.equal(s.ref, 'notfound')
+        assert.equal(s.name, 'notfound')
 
 
-        let e2 = new MyError("msg1", 'o1');
+        let e2 = new Exception("msg1", { name: 'o1' });
 
         let o2 = e2.toPlan();
         assert.equal(o2.message, 'msg1')
-        assert.equal(o2.other, 'o1')
-        assert.equal(o2.ref, 'Exception.MyError')
+        assert.equal(o2.name, 'o1')
+
 
     }
 
     @test
     async convert() {
 
-        let err = new NotfoundException("message").setCode('err.test.001');
+        let err = new Exception("message", {
+            name: 'err.test.001',
+            cause: new Exception('nested error')
+        })
 
         let jsonStr = JSON.stringify(err);
 
         let nErr = Exception.from(JSON.parse(jsonStr));
 
 
-
-
-        assert.ok(nErr instanceof Error, 'nErr instanceof Error')
         assert.ok(nErr instanceof Exception, 'nErr instanceof Exception')
-        assert.ok(nErr instanceof ValidationException, 'nErr instanceof ValidationException')
-        assert.ok(nErr instanceof NotfoundException, 'nErr instanceof NotfoundException')
-        assert.equal(nErr.message,'message')
-        assert.equal(nErr.message,err.message)
-        assert.equal(nErr.code, 'err.test.001')
-        assert.equal(nErr.code, err.code)
+        assert.equal(nErr.message, 'message')
+        assert.equal(nErr.message, err.message)
 
+        assert.equal(nErr.name, 'err.test.001')
+        assert.equal(nErr.name, err.name)
+
+        assert.equal(nErr.cause?.message, 'nested error')
+        assert.equal(nErr.cause?.message, err.cause?.message)
 
     }
 
@@ -74,38 +80,29 @@ class JsonTest {
     async convertInner() {
 
         try {
-            throw new AuthenticationException('login need')
+            throw new Exception('login need', { name: 'src' })
         } catch (error) {
 
-            let err = new ValidationException('l2').addException(Exception.from(error))
+            let err = new Exception('l2').setCause(Exception.from(error))
+
+
+            assert.equal(err.cause?.name, 'src');
+            assert.equal(err.cause?.message, 'login need');
 
             let json = JSON.stringify(err);
             let nerr = Exception.from(JSON.parse(json));
 
-
-            assert.ok(nerr instanceof ValidationException, 'jo instanceof NotfoundException')
-            assert.ok(nerr.exceptions?.length === 1, 'exceptions?.length === 1');
-
-            if(nerr.exceptions && nerr.exceptions[0]) {
-                let loginerr = nerr.exceptions[0];
-
-                assert.equal(loginerr.message, 'login need')
-                assert.ok(loginerr instanceof AuthenticationException, 'loginerr instanceof AuthenticationException')
-            }else {
-                assert.fail("nerr.exceptions && nerr.exceptions[0]  === false")
-            }
-            
-
-           
+            assert.equal(nerr.name, ExceptionNames.Exception);
+            assert.ok(nerr instanceof Exception, 'jo instanceof Exception')
 
 
+            let loginerr = Exception.from(nerr.cause);
 
+            assert.equal(loginerr.message, 'login need')
+            assert.ok(loginerr instanceof Exception, 'loginerr instanceof AuthenticationException')
+
+            assert.equal(loginerr.name, 'src');
         }
-
-
-
-
-
 
     }
 

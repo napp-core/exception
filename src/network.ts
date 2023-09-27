@@ -1,11 +1,14 @@
-import { Exception, Type } from './exception';
+import { Exception } from './exception';
+import { ExceptionNames } from './names';
 
+
+/**
+ * @deprecated use - new Exception('error message', ExceptionNames.Network)
+ */
 export class NetworkException extends Exception {
 
-
-
     constructor(message: string) {
-        super(message);
+        super(message, {name:ExceptionNames.Network});
 
         Error.captureStackTrace(this, NetworkException);
         Object.setPrototypeOf(this, NetworkException.prototype);
@@ -13,11 +16,3 @@ export class NetworkException extends Exception {
 
 
 }
-
-
-
-
-
-Exception.registerByName(NetworkException, 'network', (src) => {
-    return new NetworkException(src.message);
-})

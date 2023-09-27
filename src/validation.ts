@@ -1,21 +1,18 @@
-import { Exception, Type } from './exception';
+import { Exception } from './exception';
+import { ExceptionNames } from './names';
 
+
+/**
+ * @deprecated use - new Exception('error message', ExceptionNames.Validation)
+ */
 export class ValidationException extends Exception {
 
     constructor(message: string) {
-        super(message);
-        super.setStatus(400)
+        super(message, { name: ExceptionNames.Validation });
+
 
         Error.captureStackTrace(this, ValidationException);
         Object.setPrototypeOf(this, ValidationException.prototype);
     }
 
 }
-
-
-
-
-
-Exception.registerByName(ValidationException, 'validation', (src) => {
-    return new ValidationException(src.message);
-})

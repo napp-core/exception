@@ -1,38 +1,26 @@
-export interface IExceptionParam {
-    title?: string;
-    help?: string;
-    traceid?: string;
-    stack?: string;
-    status?: number;
-    code?: string;
-    exceptions?: Array<IException>
-}
-export interface IException extends IExceptionParam {
-    ref: string;
+import { ExceptionNames } from "./names";
+
+export type IDataValue =
+    | string
+    | number
+    | boolean
+    | null
+    | { [x: string]: IDataValue }
+    | Array<IDataValue>;
+
+export type IDataType = Record<string, IDataValue>;
+export type IMessage = string | [string, IDataType];
+
+export interface IException {
+    name: string;
     message: string;
+    data?: IDataType;
+    cause?: IException;
+    stack?: string;
 }
-
-export type TParser<T extends IException> = (err: T) => T
-//export interface TParser<T> extends Function { (src: IException): T; }
-export interface Type<T extends Exception> extends Function { new(...args: any[]): T; }
-
-
-function getClassNames<T extends Exception>(tClss: Type<T>): string[] {
-    if (tClss instanceof Function) {
-
-        // let name = tClss.hasOwnProperty("type") ? (tClss as any).type : tClss.name;
-        const name = tClss.name;
-
-        const nClss = Object.getPrototypeOf(tClss);
-
-        if (nClss && nClss.name && nClss !== Object && nClss !== Error) {
-            let parants = getClassNames(nClss);
-            return [...parants, name]
-        }
-
-        return [name];
-    }
-    return []
+export interface ExceptionOption {
+    name: string;
+    cause?: IException | Exception;
 }
 
 function isString(x: any): x is string {
@@ -40,73 +28,102 @@ function isString(x: any): x is string {
 }
 
 export class Exception extends Error implements IException {
-    readonly ref!: string;
-    src?: any;
-    code?: string;
-    title?: string;
-    help?: string;
-    traceid?: string;
-    status?: number;
-    exceptions?: Array<IException>;
 
-    constructor(message: string) {
-        super(message);
+    cause?: IException;
+    stack?: string;
+    data?: IDataType;
+
+    constructor(msg: IMessage, opt?: ExceptionOption) {
+        if (Array.isArray(msg)) {
+            super(msg[0]);
+            this.data = msg[1];
+        } else {
+            super(msg);
+        }
+
+        if (opt && opt.name) {
+            this.name = opt.name
+        } else {
+            this.name = ExceptionNames.Exception
+        }
+
+        if (opt && opt.cause) {
+            this.setCause(opt.cause)
+        }
+
+
+
 
         Error.captureStackTrace(this, Exception);
         Object.setPrototypeOf(this, Exception.prototype);
     }
 
-    setTitle(title: string) {
-        this.title = title;
+    setName(name: string) {
+        this.name = name;
         return this;
     }
 
-    setHelp(help: string) {
-        this.help = help;
+    setMessage(msg: IMessage) {
+        if (Array.isArray(msg)) {
+            this.message = msg[0];
+            this.data = msg[1];
+        } else {
+            this.message = msg;
+        }
         return this;
     }
 
-    setTraceid(traceid: string) {
-        this.traceid = traceid;
+    private static templater(tpl: string, data: IDataType): string {
+        const names = Object.keys(data);
+        const vals = Object.values(data);
+        return new Function(...names, `return \`${tpl}\`;`)(...vals);
+    }
+
+    toMessage() {
+        try {
+            return Exception.templater(this.message, this.data || {})
+        } catch (error) {
+            return this.message
+        }
+
+    }
+
+    setData(data: IDataType) {
+        this.data = data;
         return this;
     }
 
-    setStatus(status: number) {
-        this.status = status;
-        return this;
-    }
-    setCode(code: string) {
-        this.code = code;
+
+    setStack(stack: string) {
+        this.stack = stack;
         return this;
     }
 
-    setSrc(src: any) {
-        this.src = src;
-        return this;
-    }
 
-    addException(...errs: Exception[]) {
-        this.exceptions = this.exceptions || [];
-        this.exceptions.push(...errs);
+
+
+    setCause(err: IException | Exception) {
+        if (err instanceof Exception) {
+            this.cause = err.toPlan();
+        } else {
+            this.cause = Exception.from(err).toPlan();
+        }
+
         return this;
     }
 
     static __to_json_have_stack = false;
     toPlan(have_stack?: boolean) {
 
-        let obj: any = Object.assign({}, this);
-        obj.ref = this.ref;
-        obj.message = this.message;
-        if (this.title) obj.title = this.title;
-        if (this.help) obj.help = this.help;
-        if (this.traceid) obj.traceid = this.traceid;
-        if (have_stack && this.stack) obj.stack = this.stack;
-        if (this.status) obj.status = this.status;
-        if (this.code) obj.code = this.code;
-        if (Array.isArray(this.exceptions)) {
-            obj.exceptions = this.exceptions.map(it => Exception.from(it).toPlan());
-        }
-        return obj as (typeof this);
+        let obj: IException = {
+            name: this.name,
+            message: this.message,
+            data: this.data,
+            stack: have_stack ? this.stack : undefined,
+            cause: this.cause
+        };
+
+        return obj;
     }
 
 
@@ -114,22 +131,6 @@ export class Exception extends Error implements IException {
         return this.toPlan(Exception.__to_json_have_stack);
     }
 
-    private static _parser = new Map<string, TParser<any>>();
-    static register<T extends Exception>(type: Type<T>, parser: TParser<T>) {
-        let ref = getClassNames(type).join('.');
-
-        Exception.registerByName(type, ref, parser)
-    };
-
-    static registerByName<T extends Exception>(type: Type<T>, ref: string, parser: TParser<T>) {
-
-        if (Exception._parser.has(ref)) {
-            throw new ReferenceError(`the "${type}" exception is registered`);
-        }
-
-        type.prototype.ref = ref;
-        Exception._parser.set(ref, parser)
-    };
 
 
 
@@ -137,16 +138,10 @@ export class Exception extends Error implements IException {
 
 
     private static resolve(e: Exception, err: any) {
-        if (err?.title) e.title = err.title;
-        if (err?.help) e.help = err.help;
-        if (err?.traceid) e.traceid = err.traceid;
+        if (err?.name) e.name = err.name;
+        if (err?.cause) e.cause = err.cause;
         if (err?.stack) e.stack = err.stack;
-        if (err?.status) e.status = err.status;
-        if (err?.code) e.code = err.code;
-
-        if (Array.isArray(err.exceptions)) {
-            e.exceptions = err.exceptions.map((it: any) => Exception.from(it));
-        }
+        if (err?.data) e.data = err.data;
         return e;
     }
     static from<T extends Exception>(err: any): Exception | T {
@@ -156,33 +151,27 @@ export class Exception extends Error implements IException {
 
         if (err instanceof Error) {
             let e = new Exception(err.message);
-            return Exception.resolve(e, err).setSrc(err);
+            return Exception.resolve(e, err);
         }
-
-        if (err && isString(err.ref) && isString(err.message)) {
-            let ref: string = err.ref;
-            let parser = this._parser.get(ref);
-            if (parser) {
-                let e: Exception = parser(err);
-                return Exception.resolve(e, err);
-            }
-
-            let e = new Exception(err.message);
-            return Exception.resolve(e, err).setSrc(err);
-        }
-
 
         if (err && err.message) {
             let e = new Exception(err.message);
-            return Exception.resolve(e, err).setSrc(err);
+            return Exception.resolve(e, err);
         }
         if (err && err.error) {
             let e = new Exception(err.error);
-            return Exception.resolve(e, err).setSrc(err);
+            return Exception.resolve(e, err);
         }
 
-        return new Exception("Not suppored error format").setSrc(err);
+        if (isString(err)) {
+            return new Exception(err)
+        }
+
+
+
+        let e = new Exception("Unknown error");
+        e.cause = err;
+        return e;
     }
 }
 
-(Exception.prototype as any).ref = "exception"
