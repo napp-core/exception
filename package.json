@@ -1,6 +1,6 @@
 {
   "name": "@napp/exception",
-  "version": "5.1.1",
+  "version": "5.1.2",
   "description": "common exception. node application common library. serialization error",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -29,7 +29,6 @@
     "exception",
     "common error",
     "error serialization"
-    
   ],
   "devDependencies": {
     "@testdeck/mocha": "^0.3.3",
