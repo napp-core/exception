@@ -19,7 +19,7 @@ export interface IException {
     stack?: string;
 }
 export interface ExceptionOption {
-    name: string;
+    name?: string;
     cause?: IException | Exception;
 }
 
