@@ -138,15 +138,24 @@ export class Exception extends Error implements IException {
 
 
     private static resolve(e: Exception, err: any) {
-        if (err?.name) e.name = err.name;
+        if (err?.name) e.name = '' + err.name;
+        else if (err?.code) e.name = '' + err.code;
+        else if (err?.key) e.name = '' + err.key;
         if (err?.cause) e.cause = err.cause;
         if (err?.stack) e.stack = err.stack;
         if (err?.data) e.data = err.data;
         return e;
     }
-    static from<T extends Exception>(err: any): Exception | T {
+    static from(err: any, parser?: (err: any) => Exception): Exception {
         if (err instanceof Exception) {
             return err;
+        }
+
+        if (parser) {
+            let e = parser(err);
+            if (e instanceof Exception) {
+                return e;
+            }
         }
 
         if (err instanceof Error) {
