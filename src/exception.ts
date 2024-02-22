@@ -29,6 +29,15 @@ function isString(x: any): x is string {
 
 export class Exception extends Error implements IException {
 
+    public static Authorization:string = ExceptionNames.Authorization;
+    public static Authentication:string = ExceptionNames.Authentication;
+    public static Network:string = ExceptionNames.Network;
+    public static Notfound:string = ExceptionNames.Notfound;
+    public static Validation:string = ExceptionNames.Validation;
+    public static NotSupported:string = ExceptionNames.NotSupported;
+    public static Server:string = ExceptionNames.Server;
+    public static Timeout:string = ExceptionNames.Timeout;
+
     cause?: IException;
     stack?: string;
     data?: IDataType;

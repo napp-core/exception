@@ -1,5 +1,7 @@
 
-
+/**
+ * deprecated  use Exception.Authorization, Exception.Validation
+ */
 export enum ExceptionNames {
     Exception = 'exception',
     Authorization = 'authorization',
