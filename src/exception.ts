@@ -1,51 +1,77 @@
-import { ExceptionNames } from "./names";
+import { IException } from "./common";
 
-export type IDataValue =
-    | string
-    | number
-    | boolean
-    | null
-    | { [x: string]: IDataValue }
-    | Array<IDataValue>;
 
-export type IDataType = Record<string, IDataValue>;
-export type IMessage = string | [string, IDataType];
+export type IExceptionData = Record<string, any>;
 
-export interface IException {
+export interface ExceptionOption {
     name: string;
-    message: string;
-    data?: IDataType;
+    code?: string;
+    data?: IExceptionData;
     cause?: IException;
+    source?: any;
     stack?: string;
 }
-export interface ExceptionOption {
-    name?: string;
-    cause?: IException | Exception;
-}
 
-function isString(x: any): x is string {
-    return (typeof x == 'string') || (x instanceof String)
+
+
+export interface IExceptionParser {
+    parse(err: any): Exception | false
+}
+export class ExceptionParser implements IExceptionParser {
+
+    private resolve(e: Exception, err: any) {
+        if (err?.name) e.name = '' + err.name;
+        if (err?.code) e.code = '' + err.code;
+        if (err?.cause) e.cause = err.cause;
+        // if (err?.stack) e.stack = err.stack;
+        // if (err?.data) e.data = err.data;
+        // if (err?.source) e.source = err.source;
+        return e;
+    }
+
+    public parse(err: any) {
+        if (err instanceof Exception) {
+            return err;
+        }
+
+        if (err instanceof Error) {
+            let e = new Exception(err.message, { name: "exception", source: err });
+            return this.resolve(e, err);
+        }
+
+        if (err && err.message) {
+            let e = new Exception(err.message, { name: "exception", source: err });
+            return this.resolve(e, err);
+        }
+
+
+        return false
+    }
+
 }
 
 export class Exception extends Error implements IException {
 
-    public static Authorization:string = ExceptionNames.Authorization;
-    public static Authentication:string = ExceptionNames.Authentication;
-    public static Network:string = ExceptionNames.Network;
-    public static Notfound:string = ExceptionNames.Notfound;
-    public static Validation:string = ExceptionNames.Validation;
-    public static NotSupported:string = ExceptionNames.NotSupported;
-    public static Server:string = ExceptionNames.Server;
-    public static Timeout:string = ExceptionNames.Timeout;
+    public static Authorization: string = "authorization";
+    public static Authentication: string = "authentication";
+    public static Notfound: string = "notfound";
+    public static Validation: string = "validation";
+    public static Unsupported: string = "unsupported";
+    public static Unavailable: string = "unavailable";
+    public static InternalServer: string = "internal-server";
+    public static Timeout: string = "timeout";
 
+    code?: string;
     cause?: IException;
     stack?: string;
-    data?: IDataType;
+    data?: IExceptionData;
+    source?: any;
 
-    constructor(msg: IMessage, opt?: ExceptionOption) {
-        if (Array.isArray(msg)) {
-            super(msg[0]);
-            this.data = msg[1];
+
+    constructor(msg: string | [code: string, message: string], opt?: ExceptionOption) {
+        if (Array.isArray(msg) && msg.length === 2) {
+            super(msg[1]);
+            this.code = msg[0];
         } else {
             super(msg);
         }
@@ -53,14 +79,24 @@ export class Exception extends Error implements IException {
         if (opt && opt.name) {
             this.name = opt.name
         } else {
-            this.name = ExceptionNames.Exception
+            this.name = "exception"
+        }
+        if (opt && opt.code) {
+            this.setCode(opt.code)
+        }
+        if (opt && opt.data) {
+            this.setData(opt.data)
         }
 
         if (opt && opt.cause) {
             this.setCause(opt.cause)
         }
-
-
+        if (opt && opt.source) {
+            this.setSource(opt.source)
+        }
+        if (opt && opt.stack) {
+            this.setStack(opt.stack)
+        }
 
 
         Error.captureStackTrace(this, Exception);
@@ -71,37 +107,30 @@ export class Exception extends Error implements IException {
         this.name = name;
         return this;
     }
-
-    setMessage(msg: IMessage) {
-        if (Array.isArray(msg)) {
-            this.message = msg[0];
-            this.data = msg[1];
-        } else {
-            this.message = msg;
-        }
+    setCode(code: string) {
+        this.code = code;
+        return this;
+    }
+    setMessage(msg: string) {
+        this.message = msg;
         return this;
     }
 
-    private static templater(tpl: string, data: IDataType): string {
-        const names = Object.keys(data);
-        const vals = Object.values(data);
-        return new Function(...names, `return \`${tpl}\`;`)(...vals);
-    }
-
-    toMessage() {
-        try {
-            return Exception.templater(this.message, this.data || {})
-        } catch (error) {
-            return this.message
-        }
-
-    }
-
-    setData(data: IDataType) {
+    setData(data: IExceptionData) {
         this.data = data;
         return this;
     }
 
+    setCause(err: any) {
+        this.cause = Exception.from(err).toPlan();
+
+        return this;
+    }
+
+    setSource(source: any) {
+        this.source = source;
+        return this;
+    }
 
     setStack(stack: string) {
         this.stack = stack;
@@ -111,25 +140,18 @@ export class Exception extends Error implements IException {
 
 
 
-    setCause(err: IException | Exception) {
-        if (err instanceof Exception) {
-            this.cause = err.toPlan();
-        } else {
-            this.cause = Exception.from(err).toPlan();
-        }
 
-        return this;
-    }
 
-    static __to_json_have_stack = false;
-    toPlan(have_stack?: boolean) {
+
+
+    // static __to_json_have_stack = false;
+    toPlan() {
 
         let obj: IException = {
             name: this.name,
+            code: this.code,
             message: this.message,
-            data: this.data,
-            stack: have_stack ? this.stack : undefined,
-            cause: this.cause
+            cause: this.cause,
         };
 
         return obj;
@@ -137,59 +159,34 @@ export class Exception extends Error implements IException {
 
 
     toJSON() {
-        return this.toPlan(Exception.__to_json_have_stack);
+        return this.toPlan();
     }
 
 
 
 
+    static parser: IExceptionParser = new ExceptionParser()
 
 
 
-    private static resolve(e: Exception, err: any) {
-        if (err?.name) e.name = '' + err.name;
-        else if (err?.code) e.name = '' + err.code;
-        else if (err?.key) e.name = '' + err.key;
-        if (err?.cause) e.cause = err.cause;
-        if (err?.stack) e.stack = err.stack;
-        if (err?.data) e.data = err.data;
-        return e;
-    }
-    static from(err: any, parser?: (err: any) => Exception): Exception {
+    static from(err: any, parser?: IExceptionParser): Exception {
         if (err instanceof Exception) {
             return err;
         }
 
         if (parser) {
-            let e = parser(err);
+            let e = parser.parse(err)
             if (e instanceof Exception) {
                 return e;
             }
         }
 
-        if (err instanceof Error) {
-            let e = new Exception(err.message);
-            return Exception.resolve(e, err);
+        let e = Exception.parser.parse(err)
+        if (e instanceof Exception) {
+            return e;
         }
 
-        if (err && err.message) {
-            let e = new Exception(err.message);
-            return Exception.resolve(e, err);
-        }
-        if (err && err.error) {
-            let e = new Exception(err.error);
-            return Exception.resolve(e, err);
-        }
-
-        if (isString(err)) {
-            return new Exception(err)
-        }
-
-
-
-        let e = new Exception("Unknown error");
-        e.cause = err;
-        return e;
+        return new Exception("Unknown error").setSource(err)
     }
 }
 

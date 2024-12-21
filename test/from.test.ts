@@ -39,13 +39,13 @@ class FromTest {
         }
 
         {
-            let err = Exception.from({ name: 'cc', error: 'ee' });
+            let err = Exception.from({ name: 'cc', message: 'ee' });
             assert.equal(err.name, 'cc')
             assert.equal(err.message, 'ee')
         }
 
         {
-            let err = Exception.from({ error: 'ee' });
+            let err = Exception.from({ message: 'ee' });
             assert.equal(err.name, 'exception')
             assert.equal(err.message, 'ee')
         }
@@ -54,7 +54,7 @@ class FromTest {
             let err = Exception.from({ foo: 'ee' });
             assert.equal(err.name, 'exception')
             assert.equal(err.message, 'Unknown error')
-            assert.deepEqual(err.cause, { foo: 'ee' })
+            assert.deepEqual(err.source, { foo: 'ee' })
         }
     }
 

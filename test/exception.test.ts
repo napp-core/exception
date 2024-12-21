@@ -2,8 +2,8 @@ import 'reflect-metadata';
 import { suite, test } from "@testdeck/mocha";
 
 import assert from "assert";
-import { Exception, NotfoundException, ValidationException } from "../src";
-import { ExceptionNames } from '../src/names';
+import { Exception, } from "../src";
+
 
 
 @suite
@@ -16,17 +16,7 @@ class ExceptionAction {
         assert.equal(e.name, "exception")
     }
 
-    @test
-    async extend() {
-
-        let err4 = new NotfoundException('e3')
-
-        assert.ok(err4 instanceof NotfoundException, 'no extends of NotfoundException')
-        assert.ok(err4 instanceof Exception, 'no extends of Exception')
-        assert.ok(err4 instanceof Error, 'no extends of Error')
-        
-
-    }
+   
 
     @test
     async attr() {
@@ -59,15 +49,15 @@ class ExceptionAction {
     @test
     async status() {
 
-        let e1 = new ValidationException("test 1");
-        let e2 = new NotfoundException("test 2");
+        let e1 = new Exception("test 1",  {name : "e1"});
+        let e2 = new Exception("test 2",  {name : "e2"});
 
 
 
         assert.equal(e1.message, "test 1")
         assert.equal(e2.message, "test 2")
-        assert.equal(e1.name, ExceptionNames.Validation)
-        assert.equal(e2.name, ExceptionNames.Notfound)
+        assert.equal(e1.name, "e1")
+        assert.equal(e2.name, "e2")
 
     }
 }

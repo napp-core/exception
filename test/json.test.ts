@@ -2,8 +2,8 @@ import 'reflect-metadata';
 import { suite, test } from "@testdeck/mocha";
 
 import assert from "assert";
-import { AuthenticationException, Exception, NotfoundException, ValidationException } from "../src";
-import { ExceptionNames } from '../src/names';
+import {  Exception, } from "../src";
+
 
 
 
@@ -11,9 +11,9 @@ import { ExceptionNames } from '../src/names';
 class JsonTest {
     @test
     async basic() {
-        Exception.__to_json_have_stack = true
+        //Exception.__to_json_have_stack = true
         let err = new Exception("message")
-            .setName('n1').setStack('n2');
+            .setName('n1')
 
 
 
@@ -25,8 +25,7 @@ class JsonTest {
         assert.equal(err.message, jo.message)
         assert.equal(err.name, "n1")
         assert.equal(err.name, jo.name)
-        assert.equal(err.stack, "n2")
-        assert.equal(err.stack, jo.stack)
+    
 
 
 
@@ -34,7 +33,7 @@ class JsonTest {
 
     @test
     async toPlan() {
-        let e1 = new NotfoundException('test');
+        let e1 = new Exception('test').setName("notfound");
 
         let s = e1.toPlan();
         assert.equal(s.message, 'test')
@@ -92,7 +91,7 @@ class JsonTest {
             let json = JSON.stringify(err);
             let nerr = Exception.from(JSON.parse(json));
 
-            assert.equal(nerr.name, ExceptionNames.Exception);
+            assert.equal(nerr.name, "exception");
             assert.ok(nerr instanceof Exception, 'jo instanceof Exception')
 
 
