@@ -1,6 +1,6 @@
 {
   "name": "@napp/exception",
-  "version": "6.1.1",
+  "version": "6.1.2",
   "description": "common exception. node application common library. serialization error",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
