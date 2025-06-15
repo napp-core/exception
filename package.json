@@ -1,6 +1,6 @@
 {
   "name": "@napp/exception",
-  "version": "6.1.2",
+  "version": "7.0.2",
   "description": "common exception. node application common library. serialization error",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -21,7 +21,7 @@
     "url": "git+https://github.com/napp-core/exception.git"
   },
   "engines": {
-    "node": ">=6.10.2"
+    "node": ">=20.0.0"
   },
   "keywords": [
     "error",
@@ -30,10 +30,11 @@
     "common error",
     "error serialization"
   ],
-  "dependencies": {},
   "devDependencies": {
     "@testdeck/mocha": "latest",
+    "@types/chai": "latest",
     "@types/mocha": "latest",
+    "chai": "latest",
     "mocha": "latest",
     "reflect-metadata": "latest",
     "rimraf": "latest",
