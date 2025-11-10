@@ -1,18 +1,34 @@
 {
   "name": "@napp/exception",
-  "version": "7.0.2",
+  "version": "7.1.2",
   "description": "common exception. node application common library. serialization error",
-  "main": "lib/index.js",
-  "types": "lib/index.d.ts",
+  "types": "dist/index.d.ts",
+  "main": "dist/index.cjs",
+  "module": "dist/index.js",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist"
+  ],
   "scripts": {
+    "clear": "npx rimraf --glob dist/**",
     "upversion": "npm version patch",
     "tsc": "tsc -p tsconfig.json",
-    "clear": "rimraf lib/**/* --glob",
-    "prebuild": "npm run clear",
-    "build": "tsc -p tsconfig.lib.json",
-    "test": "mocha -r ts-node/register test/**.test.ts",
-    "prepush": "npm run upversion & npm run build",
-    "push": "npm publish --access=public"
+    "build": "npx tsup src/index.ts --format cjs,esm --dts --sourcemap --clean --target es6",
+    "prerelease": "npm run upversion",
+    "release": "npm run build -- --minify",
+    "prepush": "npm run test && npm run release",
+    "push": "npm publish --access=public",
+
+    "test": "node --test --import=tsx test/**/*.test.ts"
+    
+    
   },
   "author": "farcek@gmail.com",
   "license": "ISC",
@@ -31,15 +47,10 @@
     "error serialization"
   ],
   "devDependencies": {
-    "@testdeck/mocha": "latest",
-    "@types/chai": "latest",
-    "@types/mocha": "latest",
-    "chai": "latest",
-    "mocha": "latest",
-    "reflect-metadata": "latest",
-    "rimraf": "latest",
-    "source-map-support": "latest",
-    "ts-node": "latest",
-    "typescript": "latest"
+    "@types/node": "^24.10.0",
+    "rimraf": "^6.1.0",
+    "tsup": "^8.5.0",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
   }
 }

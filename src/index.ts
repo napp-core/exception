@@ -35,7 +35,7 @@ export interface ExceptionOption {
     type?: ExceptionType;
     code?: string;
 
-    cause?: any;    
+    cause?: any;
     source?: any;
 
     data?: any;
@@ -78,7 +78,7 @@ export class Exception extends Error implements IException {
         if (opt && opt.cause) {
             this.setCause(opt.cause)
         }
-        
+
         if (opt && opt.source) {
             this.setSource(opt.source)
         }
@@ -111,7 +111,7 @@ export class Exception extends Error implements IException {
     }
 
 
-   
+
 
     setCause(err: any) {
         this.cause = Exception.from(err);
@@ -216,7 +216,7 @@ export class Exception extends Error implements IException {
         return target;
     }
 
-    public static httpStatusByType(type?: ExceptionType): number {
+    public static httpStatusByType(type: ExceptionType): number | undefined {
         switch (type) {
             case 'Validation': return 400;
             case 'Authentication': return 401;
@@ -231,8 +231,8 @@ export class Exception extends Error implements IException {
             case 'Database': return 500; // Database errors are often internal
             case 'Network': return 502; // Network errors can be considered as bad gateway
             case 'Unknown': return 500; // Unknown errors are often internal
-            default: return 0; // 0 means no specific HTTP status
         }
+        return undefined
     }
 
     public static from(err: any, customParser?: IExceptionParser): Exception {
