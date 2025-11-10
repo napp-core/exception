@@ -1,77 +1,97 @@
-# common exception
+# common exception Library
 
-javascript error common library. basic error library
+A lightweight and expressive exception system for structured error handling in both server and client contexts.
 
-- error -> json string -> error
-- error message template
+**Товч тайлбар**:  
+Энэхүү сан нь алдааг `type`, `code`, `cause`, `httpStatus`, `isOperational`, `data` зэргээр бүтэцлэн илэрхийлж, олон шатлалт алдааны мэдээллийг илүү ойлгомжтой болгоход зориулагдсан.
+
+---
+
+## Features / Онцлог
+
+- Strictly-typed structured error object (`Exception`)
+- Multilevel `cause` chaining
+- Optional `data`, `source`, `httpStatus`, `isOperational` flags
+- Centralized parsing with `Exception.from(...)`
+- Interoperable with native `Error`, external errors, or any object
+
+---
+
+## Installation
+
+```bash
+npm install @napp/exception
+```
 
 
 
-# basic error
+
+
+
+
+
+# basic usage Example / Ашиглах жишээ
 
 ``` typescript
+import { Exception } from '@napp/exception';
 
-    let err = new Exception("message", {
-        name: 'err.test.001'
-    })
+throw new Exception('Post not found', {
+  type: 'NotFound',
+  code: 'POST_404',
+  isOperational: true,
+});
 
-    let jsonStr = JSON.stringify(err);
+...
 
-    let nErr = Exception.from(JSON.parse(jsonStr));
-
-
-    assert.ok(nErr instanceof Exception, 'nErr instanceof Exception')
-    assert.equal(nErr.message, 'message')
-    assert.equal(nErr.message, err.message)
-
-    assert.equal(nErr.name, 'err.test.001')
-    assert.equal(nErr.name, err.name)
+try {
+  doAction();
+} catch (err) {
+  throw new Exception('Failed to complete operation', {
+    type: 'ServiceUnavailable',
+    cause: err,
+    data: { operation: 'doThing' },
+  });
+}
 
 ```
 
 
-# use cause 
+
+## Use Case: Structured error transport between server and client
+Серверээс JSON алдаа буцааж, client талд Exception-р сэргээх
 
 ``` typescript
+// server side
 
-    try {
-        throw new Exception('login need', { name: 'src' })
-    } catch (error) {
+// Example: In tRPC / Express / GraphQL resolver
+import { Exception } from 'your-exception-library';
 
-        let err = new Exception('l2').setCause(Exception.from(error))
+if (await postExists(title)) {
+  throw new Exception('Title already exists', {
+    type: 'Conflict',
+    code: 'TITLE_TAKEN',
+    data: { id: 'abc123' },
+    isOperational: true,
+  });
+}
+
+// serialize for network transport
+const json = err.toJSON(); // IException
 
 
-        assert.equal(err.cause?.name, 'src');
-        assert.equal(err.cause?.message, 'login need');
+// client side
+// errJson could be from HTTP response, tRPC errorFormatter, etc.
+const err = Exception.from(errJson);
 
-        let json = JSON.stringify(err);
-        let nerr = Exception.from(JSON.parse(json));
+console.log(err.message); // "Title already exists"
+console.log(err.type);    // "Conflict"
+console.log(err.code);    // "TITLE_TAKEN"
+console.log(err.data);    // { id: 'abc123' }
 
-        assert.equal(nerr.name, ExceptionNames.Exception);
-        assert.ok(nerr instanceof Exception, 'jo instanceof Exception')
-
-
-        let loginerr = Exception.from(nerr.cause);
-
-        assert.equal(loginerr.message, 'login need')
-        assert.ok(loginerr instanceof Exception, 'loginerr instanceof Exception')
-
-        assert.equal(loginerr.name, 'src');
-    }
-
-```
-
-# error message template
-
-``` typescript
-
-    let e = new Exception(["hi ${a}", { a: 'farcek' }]);
-    let e1 = new Exception(["hi ${a}", { a: 'saraa' }]);
-    let e2 = new Exception(["hi ${b}", { a: 'b is miss' }]);
-
-    assert.equal(e.toMessage(), 'hi farcek')
-    assert.equal(e1.toMessage(), 'hi saraa')
-    assert.equal(e2.toMessage(), 'hi ${b}')
 
 ```
+✅ Exception.from(json) нь:
 
+- Серверийн сериализ болсон JSON-оос Exception объектыг дахин сэргээдэг
+- stack болон source мэдээллийг серверээс задруулахгүй
+- cause-г гүнзгий сэргээх боломжтой (recursively nested)
