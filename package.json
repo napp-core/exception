@@ -1,6 +1,6 @@
 {
   "name": "@napp/exception",
-  "version": "7.1.2",
+  "version": "8.0.2",
   "description": "common exception. node application common library. serialization error",
   "types": "dist/index.d.ts",
   "main": "dist/index.cjs",
@@ -18,9 +18,9 @@
   ],
   "scripts": {
     "clear": "npx rimraf --glob dist/**",
-    "upversion": "npm version patch",
+    "upversion": "npm version patch && node make_version.mjs",
     "tsc": "tsc -p tsconfig.json",
-    "build": "npx tsup src/index.ts --format cjs,esm --dts --sourcemap --clean --target es6",
+    "build": "npx tsup src/index.ts --format cjs,esm --dts --sourcemap --clean",
     "prerelease": "npm run upversion",
     "release": "npm run build -- --minify",
     "prepush": "npm run test && npm run release",
