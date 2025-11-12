@@ -1,6 +1,6 @@
 {
   "name": "@napp/exception",
-  "version": "8.0.2",
+  "version": "8.0.3",
   "description": "common exception. node application common library. serialization error",
   "types": "dist/index.d.ts",
   "main": "dist/index.cjs",
@@ -25,10 +25,7 @@
     "release": "npm run build -- --minify",
     "prepush": "npm run test && npm run release",
     "push": "npm publish --access=public",
-
     "test": "node --test --import=tsx test/**/*.test.ts"
-    
-    
   },
   "author": "farcek@gmail.com",
   "license": "ISC",
