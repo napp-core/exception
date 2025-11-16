@@ -15,7 +15,7 @@ export class ValidationException extends Exception<EValidation> {
         super({ ...opt, kind: 'validation' })
     }
 
-    static isValidationExcepion<E extends IException>(ex: unknown): ex is Exception<E> {
+    static isValidationExcepion(ex: unknown): ex is Exception<EValidation> {
         return ex instanceof Exception && ex.error.kind === 'validation'
     }
 }
