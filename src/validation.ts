@@ -14,4 +14,8 @@ export class ValidationException extends Exception<EValidation> {
     constructor(opt: EValidation) {
         super({ ...opt, kind: 'validation' })
     }
+
+    isValidationExcepion<E extends IException>(ex: unknown): ex is Exception<E> {
+        return ex instanceof Exception && ex.error.kind === 'validation'
+    }
 }

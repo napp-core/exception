@@ -1,6 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { Exception } from "../src/exception";
+import { EValidation } from "../src";
 
 /** helper: cause chain kinds авах */
 function kindsFromException(e: unknown): string[] {

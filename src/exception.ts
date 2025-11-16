@@ -50,7 +50,7 @@ export interface ExceptionOption {
  * хөгжүүлэг өөрийн хүслээр өргөтгөх боломжтой.
  */
 
-export class Exception<E extends IException = IAnyException> extends Error implements IException {
+export class Exception<E extends IException = IAnyException> extends Error {
 
     readonly error: Readonly<E>;
 
