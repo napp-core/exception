@@ -1,33 +1,37 @@
-# @napp/exception — Exception Library / Алдааны сан
+# @napp/exception
 
-Lightweight, structured exceptions for Node/Browser with JSON-safe serialization.
-Node болон Browser-д зориулсан, JSON-д найдвартай сериалчилдаг, хөнгөн exception сан.
+Lightweight, structured exceptions for Node.js and browsers with deterministic JSON serialization and RFC 7807 Problem Details mapping.
 
-— Works great across process boundaries (HTTP, workers, logs).
-— Процесс хооронд (HTTP, worker, log) дамжуулахад найдвартай.
+## Features
 
-## Features / Онцлог
-- Typed core `Exception<E>` with immutable `error` data
-  - Төрөлжсөн `Exception<E>` ба immutable `error` объект
-- Cause chaining with native `Error.cause`
-  - `cause` ашиглан алдааны гинжин холбоос дэмжинэ
-- Deterministic `toJSON()` / `fromJSON()` for wire-safe transport
-  - `toJSON()` / `fromJSON()` нь найдвартай сериалчлал/сэргээх
-- Helpers for HTTP status mapping and RFC7807 ProblemDetails
-  - HTTP статус тааруулах, RFC7807 ProblemDetails хөрвүүлэгчтэй
-- Built-in flavors: Validation, Authentication, Authorization
-  - Суурь бэлэн төрөл: Validation, Authentication, Authorization
+- Structured error metadata via `Exception<E>` (typed `exception` payload)
+- Cause chaining via native `Error.cause`
+- Deterministic `toJSON()` / `fromJSON()` for safe transport over HTTP/logs/queues
+- Helpers for mapping `kind` to an HTTP status code
+- Conversion helpers for RFC 7807-like `ProblemDetails`
+- Built-in exception types: `ValidationException`, `AuthenticationException`, `AuthorizationException`
 
-## Install / Суурилуулалт
+## Install
 
 ```bash
 npm i @napp/exception
 ```
 
-Requires Node 20+.
-Node 20+ шаардлагатай.
+Requirements: Node.js 20+
 
-## Quick Start / Түргэн эхлэх
+### Module formats
+
+This package is ESM-first, but also ships a CommonJS build via `exports`.
+
+```ts
+import { Exception } from "@napp/exception";
+```
+
+```js
+const { Exception } = require("@napp/exception");
+```
+
+## Quick start
 
 ```ts
 import {
@@ -38,139 +42,124 @@ import {
   exceptionToProblem,
   problemToException,
   httpStatusByKind,
-} from '@napp/exception'
+} from "@napp/exception";
 
-// 1) Create and throw / Үүсгээд шидэх
-throw new ValidationException({
-  message: 'name is required',
-  code: 'VALIDATION',
+// 1) Create and throw
+throw new ValidationException("name is required", {
+  code: "VALIDATION",
   status: 400,
-  // errors: [{ path: 'name', message: 'Required' }]
-})
+  errors: [{ path: "name", message: "Required" }],
+});
 
-// 2) Wrap unknown errors / Үл мэдэгдэх алдааг нэг хэлбэрт оруулах
+// 2) Normalize unknown input to Exception
 function toException(err: unknown) {
-  return Exception.from(err)
+  return Exception.from(err);
 }
 
-// 3) Cause chain / алдааны гинж
-const inner = new Exception({ kind: 'validation', message: 'bad name', status: 400 })
-const outer = new Exception({ kind: 'permission', message: 'access denied', status: 403, cause: inner })
+// 3) Cause chain
+const inner = new Exception("bad name", { kind: "validation", status: 400 });
+const outer = new Exception("access denied", {
+  kind: "authorization",
+  status: 403,
+  cause: inner,
+});
 
-// 4) Serialize and restore / Сериалчилж дамжуулаад сэргээх
-const plan = outer.toJSON()              // send over HTTP, log, queue
-const restored = Exception.fromJSON(plan) // receive and restore
+// 4) Serialize and restore (wire-safe JSON)
+const plan = outer.toJSON();
+const restored = Exception.fromJSON(plan);
 
-// 5) ProblemDetails (RFC7807) conversion / RFC7807 хөрвүүлэлт
-const problem = exceptionToProblem(outer)
-const backToEx = problemToException(problem)
+// 5) ProblemDetails (RFC 7807 style) conversion
+const problem = exceptionToProblem(restored);
+const backToEx = problemToException(problem);
 
-// 6) Map kind to HTTP status / kind -> HTTP статус
-const status = httpStatusByKind('validation') // 400
+// 6) Map kind -> HTTP status
+const status = restored.exception.status ?? httpStatusByKind(restored.exception.kind ?? "") ?? 500;
 ```
 
-## API Overview / API тойм
+## Serialization format
 
-### Core Types / Суурь төрлүүд
+`Exception#toJSON()` returns an `IExceptionPlan` that can be sent over the wire and restored with `Exception.fromJSON()`.
+
+```json
+{
+  "$exception": "<version>",
+  "message": "access denied",
+  "exception": { "kind": "authorization", "status": 403 },
+  "cause": { "...": "..." }
+}
+```
+
+- `$exception` carries the library version; `Exception.isExceptionPlan()` requires a matching major version.
+- Only `message`, `exception`, and the `cause` chain are included (stack traces are not serialized).
+- Keep `exception` values JSON-compatible if you plan to call `JSON.stringify()` on the plan.
+
+## API
+
+### Core
 
 - `interface IException`
-  - Common fields: `kind?`, `message`, `code?`, `status?`, `help?`, `instance?`, `trace_id?`
-  - Нийтлэг талбарууд: `kind?`, `message`, `code?`, `status?`, `help?`, `instance?`, `trace_id?`
+  - Common fields: `kind?`, `code?`, `status?`, `help?`, `instance?`, `trace_id?`, `span_id?`, `request_id?`
+  - You can extend it with additional fields (they will be included in `exception`)
+- `class Exception<E extends IException = IException> extends Error`
+  - `readonly exception: E` immutable metadata payload
+  - `toJSON(): IExceptionPlan<E>`
+  - `static fromJSON(plan: IExceptionPlan<E>): Exception<E>`
+  - `static from(err: unknown, parser?: IExceptionParser<E>): Exception<E>`
+  - `static tryFrom(err: unknown, parser?: IExceptionParser<E>): Exception<E> | undefined`
+  - `static isExceptionPlan(x: unknown): x is IExceptionPlan<E>`
 
-- `class Exception<E extends IException = IAnyException> extends Error`
-  - `constructor(opt: E & ExceptionOption)` — creates exception with optional `cause` and local-only `source`.
-    - `cause` нь гинжин холбоос үүсгэнэ, `source` нь локал хэрэглээ (JSON-д орохгүй)
-  - `readonly error: Readonly<E>` — immutable error payload.
-  - `toJSON(): IExceptionPlan<E>` — deterministic plan for transport.
-  - `static fromJSON(plan)` — restore exception (no `source`).
-  - `static from(err, parser?)` — normalize unknown input to `Exception`.
-  - `static tryFrom(err, parser?)` — like `from` but returns `undefined` on failure.
-  - `static isExceptionPlan(x)` — guard for JSON shape.
-  - `static clone<T>(x): T` — structured clone fallback.
+### Built-in exceptions
 
-- `interface ExceptionOption`
-  - `cause?: Error | Exception | unknown`
-  - `source?: any` (local only, not serialized)
-
-- `interface IExceptionPlan<E>`
-  - Wire format for `toJSON()`/`fromJSON()`; contains `$exception`, `error`, `cause`.
-
-- `interface IExceptionParser<E>`
-  - Custom parser hook for `from/tryFrom`.
-
-### Built‑ins / Бэлэн ангиллууд
-
-- `ValidationException` with `EValidation` and `EValidationItem`
+- `ValidationException` (`EValidation`, `EValidationItem`)
   - `errors?: Array<{ path?: string; reason?: string; message: string }>`
-- `AuthenticationException` with `EAuthentication`
-- `AuthorizationException` with `EAuthorization { required: string }`
+- `AuthenticationException`
+- `AuthorizationException` (`EAuthorization`)
+  - `required: string`
 
-### Helper / Туслагч
+### Helpers
 
 - `httpStatusByKind(kind: string): number | undefined`
-  - Maps common kinds: `validation→400`, `authentication→401`, `authorization→403`, `notfound→404`, `conflict→409`, `timeout→408`, `toomanyrequests→429`, `serviceunavailable→503`, `internal→500`, `unsupported→415`, `database→500`, `network→502`, `unknown→500`.
 
-### ProblemDetails / RFC7807
+### Problem Details (RFC 7807 style)
 
 - `type ProblemDetails`
-- `exceptionToProblem(e: Exception) => ProblemDetails`
-- `problemToException(p: ProblemDetails) => Exception`
+- `exceptionToProblem(e: Exception): ProblemDetails`
+- `problemToException(p: ProblemDetails): Exception`
 
-## Usage Patterns / Хэрэглэх жишээ
+## Usage patterns
 
-### Express-style handler / Express төстэй handler
+### Express-style error handler
 
 ```ts
-import type { Request, Response } from 'express'
-import { Exception, exceptionToProblem, httpStatusByKind } from '@napp/exception'
+import type { Request, Response, NextFunction } from "express";
+import { Exception, exceptionToProblem, httpStatusByKind } from "@napp/exception";
 
-export async function handler(req: Request, res: Response) {
-  try {
-    // ... your logic
-  } catch (err) {
-    const ex = Exception.from(err)
-    const problem = exceptionToProblem(ex)
-    const status = ex.error.status ?? httpStatusByKind(ex.error.kind ?? '') ?? 500
-    res.status(status).json(problem)
-  }
+export function errorHandler(err: unknown, _req: Request, res: Response, _next: NextFunction) {
+  const ex = Exception.from(err);
+  const status = ex.exception.status ?? httpStatusByKind(ex.exception.kind ?? "") ?? 500;
+  res.status(status).json(exceptionToProblem(ex));
 }
 ```
 
-### Preserve cause chain / Шалтгааны гинж хадгалах
+### Authentication / authorization
 
 ```ts
-try {
-  doWork()
-} catch (e) {
-  throw new Exception({ kind: 'internal', message: 'processing failed', cause: e, status: 500 })
-}
+import { AuthenticationException, AuthorizationException } from "@napp/exception";
+
+throw new AuthenticationException("login required", { status: 401 });
+throw new AuthorizationException("access denied", { status: 403, required: "admin" });
 ```
 
-### Typed validation payload / Төрөлтэй validation мэдээлэл
+## Notes
 
-```ts
-throw new ValidationException({
-  message: 'Invalid input',
-  status: 400,
-  errors: [
-    { path: 'email', message: 'Invalid format' },
-    { path: 'age', reason: 'min', message: 'Must be >= 18' },
-  ],
-})
-```
+- `Exception.name` becomes `Exception/<kind>` when `kind` is present; otherwise it stays `Exception`.
+- `exception` metadata is cloned and frozen at construction time.
 
-## Notes / Тэмдэглэл
-- `error` is immutable and safe to expose. `source` is local-only.
-  - `error` нь immutable, гадна руу өгөхөд аюулгүй. `source` нь зөвхөн локал.
-- `name` becomes `Exception/<kind>` if `kind` is present; else `Exception`.
-  - `kind` байвал `name` нь `Exception/<kind>` хэлбэртэй, үгүй бол `Exception`.
-- `VERSION` embeds major version in JSON plan to keep compatibility.
-  - JSON plan дотор major version хадгалж нийцтэй байдлыг хангана.
+## Development
 
-## Development / Хөгжүүлэлт
-- Build: `npm run build` (uses `tsup`)
-- Test: `npm test` (Node test runner + tsx)
+- Build: `npm run build`
+- Test: `npm test`
 
-## License / Лиценз
+## License
+
 ISC
-
