@@ -1,4 +1,4 @@
-import { IAnyException, Exception } from "./exception";
+import { Exception } from "./exception";
 
 export type ProblemDetails = {
     type?: string;
@@ -15,17 +15,17 @@ export type ProblemDetails = {
     timestamp?: string;
 };
 
-export function exceptionToProblem(e: Exception<IAnyException>): ProblemDetails {
-    const err = e.error;
+export function exceptionToProblem(e: Exception<any>): ProblemDetails {
+    const err = e.exception;
     const detail: ProblemDetails = {
         type: err.help,
         title: err.kind ?? e.name,
         status: err.status,
-        detail: err.message,
+        detail: e.message,
         instance: err.instance,
         code: err.code,
         errors: Array.isArray(err.errors)
-            ? err.errors.map((i) => ({
+            ? err.errors.map((i: any) => ({
                 detail: i.message ?? i.detail,
                 pointer: i.pointer,
                 path: i.path,
@@ -42,10 +42,9 @@ export function exceptionToProblem(e: Exception<IAnyException>): ProblemDetails 
     return detail;
 }
 
-export function problemToException(p: ProblemDetails): Exception<IAnyException> {
-    return new Exception<IAnyException>({
+export function problemToException(p: ProblemDetails): Exception<any> {
+    return new Exception(p.detail ?? p.title ?? "Error", {
         kind: p.category ?? p.title ?? "error",
-        message: p.detail ?? p.title ?? "Error",
         code: p.code,
         status: p.status,
         help: p.type,

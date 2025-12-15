@@ -1,12 +1,8 @@
-import { Exception, IException } from "./exception";
+import { Exception, IException, IExceptionSubOption } from "./exception";
 
-export interface EAuthentication extends IException {
-
-}
-
-export class AuthenticationException extends Exception<EAuthentication> {
-    constructor(opt: EAuthentication) {
-        super({ ...opt, kind: 'authentication' })
+export class AuthenticationException extends Exception<IException> {
+    constructor(message: string, opt?: IExceptionSubOption<IException>) {
+        super(message, { ...opt, kind: 'authentication' })
     }
 }
 
@@ -20,7 +16,7 @@ export interface EAuthorization extends IException {
 }
 
 export class AuthorizationException extends Exception<EAuthorization> {
-    constructor(opt: EAuthorization) {
-        super({ ...opt, kind: 'authorization' })
+    constructor(message: string, opt: IExceptionSubOption<EAuthorization>) {
+        super(message, { ...opt, kind: 'authorization' })
     }
 }

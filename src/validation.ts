@@ -1,4 +1,4 @@
-import { Exception, IException } from "./exception";
+import { Exception, IException, IExceptionSubOption } from "./exception";
 
 export interface EValidationItem {
     path?: string;
@@ -10,12 +10,17 @@ export interface EValidation extends IException {
     errors?: Array<EValidationItem>
 }
 
+
 export class ValidationException extends Exception<EValidation> {
-    constructor(opt: EValidation) {
-        super({ ...opt, kind: 'validation' })
+    constructor(message: string, opt?: IExceptionSubOption<EValidation>) {
+        super(message, { ...opt, kind: 'validation' })
     }
 
     static isValidationExcepion(ex: unknown): ex is Exception<EValidation> {
-        return ex instanceof Exception && ex.error.kind === 'validation'
+        return (
+            typeof ex === 'object' &&
+            ex !== null &&
+            (ex as any).exception?.kind === 'validation'
+        )
     }
 }

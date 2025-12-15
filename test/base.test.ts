@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { Exception } from "../src/exception";
+import { Exception, IExceptionPlan } from "../src/exception";
 import { EValidation } from "../src";
 
 /** helper: cause chain kinds авах */
@@ -9,7 +9,7 @@ function kindsFromException(e: unknown): string[] {
   // @ts-ignore
   let cur: any = e;
   while (cur instanceof Exception) {
-    out.push(cur.error?.kind ?? "");
+    out.push(cur.exception?.kind ?? "");
     // @ts-ignore
     cur = cur.cause;
   }
@@ -17,36 +17,33 @@ function kindsFromException(e: unknown): string[] {
 }
 
 /** helper: cause chain kinds авах (plan талаас) */
-function kindsFromPlan(plan: any): string[] {
+function kindsFromPlan(plan: IExceptionPlan<any>): string[] {
   const out: string[] = [];
-  let cur: any = plan;
-  while (cur && cur.error) {
-    out.push(cur.error.kind ?? "");
-    cur = cur.cause;
+  let cur = plan;
+  while (cur && cur.exception) {
+    out.push(cur.exception.kind ?? "");
+    cur = cur.cause as any;
   }
   return out;
 }
 
 describe("Exception – toJSON() -> fromJSON() дугуй цикл (cause chain-тэй)", () => {
   it("cause chain-ийг бүрэн хадгалах ёстой, plan дахин сэргээхэд ижил байх ёстой", () => {
-    const inner = new Exception({
+    const inner = new Exception("bad name", {
       kind: "validation",
-      message: "bad name",
       status: 400,
       code: "VALIDATION",
     });
 
-    const mid = new Exception({
+    const mid = new Exception("login required", {
       kind: "authentication",
-      message: "login required",
       status: 401,
       code: "AUTH_REQUIRED",
       cause: inner,
     });
 
-    const outer = new Exception({
+    const outer = new Exception("access denied", {
       kind: "permission",
-      message: "access denied",
       status: 403,
       code: "NO_ACCESS",
       cause: mid,
@@ -57,23 +54,23 @@ describe("Exception – toJSON() -> fromJSON() дугуй цикл (cause chain-
 
     // шалгалтууд (plan)
     assert.equal(typeof plan.$exception, "string");
-    assert.equal(plan.error.message, "access denied");
+    assert.equal(plan.message, "access denied");
     assert.deepEqual(kindsFromPlan(plan), ["permission", "authentication", "validation"]);
 
     // fromJSON
     const restored = Exception.fromJSON(plan);
 
     // үндсэн талбарууд
-    assert.equal(restored.error.kind, "permission");
-    assert.equal(restored.error.message, "access denied");
-    assert.equal(restored.error.status, 403);
-    assert.equal(restored.error.code, "NO_ACCESS");
+    assert.equal(restored.exception.kind, "permission");
+    assert.equal(restored.message, "access denied");
+    assert.equal(restored.exception.status, 403);
+    assert.equal(restored.exception.code, "NO_ACCESS");
 
     // cause chain
     assert.deepEqual(kindsFromException(restored), ["permission", "authentication", "validation"]);
 
     // source serialize-д ордоггүй (fromJSON сэргээхэд байх ёсгүй)
-    assert.equal(restored.source, undefined);
+    assert.equal((restored as any).source, undefined);
 
     // дахин toJSON хийж plan-тэй ижил эсэх (deterministic)
     assert.deepEqual(restored.toJSON(), plan);
@@ -119,19 +116,19 @@ describe("Exception.clone() – BigInt/Date/Map edge кейсүүд", () => {
 
 describe("Exception – name/kind лог тогтвортой эсэх", () => {
   it("kind өгөгдсөн үед name = `Exception_<kind>` байх ёстой, fromJSON дараа нь ч ижил", () => {
-    const ex = new Exception({ kind: "validation", message: "x" });
-    assert.equal(ex.error.kind, "validation");
+    const ex = new Exception("x", { kind: "validation" });
+    assert.equal(ex.exception.kind, "validation");
     assert.equal(ex.name, "Exception/validation");
 
     const plan = ex.toJSON();
     const back = Exception.fromJSON(plan);
-    assert.equal(back.error.kind, "validation");
+    assert.equal(back.exception.kind, "validation");
     assert.equal(back.name, "Exception/validation");
   });
 
   it("kind байхгүй үед name 'Exception' байх ёстой", () => {
-    const ex = new Exception({ message: "plain error" });
-    assert.equal((ex.error as any).kind, undefined);
+    const ex = new Exception("plain error");
+    assert.equal((ex.exception as any).kind, undefined);
     assert.equal(ex.name, "Exception");
 
     const back = Exception.fromJSON(ex.toJSON());
@@ -139,11 +136,11 @@ describe("Exception – name/kind лог тогтвортой эсэх", () => {
   });
 
   it("message өөрчлөгдөх нь name-д нөлөөлөхгүй", () => {
-    const ex = new Exception({ kind: "server", message: "A" });
+    const ex = new Exception("A", { kind: "server" });
     const plan = ex.toJSON();
     // сэргээхэд message = 'A' хэвээр, name stable
     const back = Exception.fromJSON(plan);
     assert.equal(back.name, "Exception/server");
-    assert.equal(back.error.message, "A");
+    assert.equal(back.message, "A");
   });
 });

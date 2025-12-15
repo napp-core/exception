@@ -1,93 +1,87 @@
 import { VERSION } from "./version";
 
+
+export type Kind =
+    | 'authentication'
+    | 'authorization'
+    | 'validation'
+    | 'notfound'
+    | 'conflict'
+    | 'timeout'
+    | 'toomanyrequests'
+    | 'serviceunavailable'
+    | 'internal'
+    | 'unsupported'
+    | 'database'
+    | 'network'
+    | 'unknown'
+    | (string & {}); // Allow custom types
+
 export interface IException {
     /**
     * ямар төрлийн error болох тодорхойлно
     * энэ нь ямар бүтэцтэй, алдааг яаж түрслэх(UI) зэрэгийг прагамп танийлах зорилготой
     */
-    kind?: string;
-
-    /**
-     * хэрэглэгчид ойлгомтой алааны товч агуулга
-     */
-    message: string;
-
+    kind?: Kind;
 
     code?: string | number
     status?: number
     help?: string
     instance?: string
     trace_id?: string
+    span_id?: string
+    request_id?: string
 };
-
-export interface IAnyException extends IException, Record<string, any> {
-
-}
 
 export type IExceptionPlan<E extends IException> = {
     $exception: string;
-    error: E
+    /**
+     * хэрэглэгчид ойлгомтой алааны товч агуулга
+     */
+    message: string;
+    exception: E
     cause?: IExceptionPlan<any>
 };
 
 
+export type IExceptionOption<T> = T & ErrorOptions & {
+    source?: unknown
+}
+
+export type IExceptionSubOption<T> = Omit<IExceptionOption<T>, 'kind'>
+
 
 export interface IExceptionParser<E extends IException> {
-    parse(err: any): Exception<E> | false
+    parse(err: any): Exception<E> | undefined
 }
 
-export interface ExceptionOption {
 
-    cause?: Error | Exception | unknown;
 
-    /**
-     * local only
-     */
-    source?: any;
-}
 
-/**
- * хөгжүүлэг өөрийн хүслээр өргөтгөх боломжтой.
- */
+export class Exception<E extends IException = IException> extends Error {
+    readonly exception: E
 
-export class Exception<E extends IException = IAnyException> extends Error {
+    constructor(message: string, opt?: IExceptionOption<E>) {
+        super(message, { cause: opt?.cause })
+        this.name = opt?.kind
+            ? `${this.constructor.name}/${opt.kind}`
+            : this.constructor.name ?? "Exception";
 
-    readonly error: Readonly<E>;
-
-    /**
-     * Тухайн Exception өөрөө үсээгзй ямар Object-оос хөрвүүлэгдэн үүсэн бол анхдагч source -г заана 
-     */
-    readonly source?: any;
-
-    constructor(opt: E & ExceptionOption) {
-        super(opt.message, { cause: opt.cause });
-        this.name = opt.kind
-            ? `Exception/${opt.kind}`
-            : (this as any).constructor?.name ?? "Exception";
-
-        this.error = Object.freeze(Exception.clone<E>({
-            ...opt,
+        this.exception = Object.freeze(Exception.clone<any>({
+            ...(opt ?? {}),
             cause: undefined,
             source: undefined
-        }));
-        this.source = opt.source
+        }))
     }
-
-
-
-
 
     toJSON(): IExceptionPlan<E> {
-        const error = Exception.clone<E>({ ... this.error, message: this.message });
-
-        let obj: IExceptionPlan<E> = {
+        return {
+            message: this.message,
             $exception: VERSION,
-            error,
+            exception: this.exception,
             cause: Exception.tryFrom<any>(this.cause)?.toJSON(),
         };
-        return obj;
     }
-
 
     static clone<T>(obj: T): T {
         try {
@@ -95,57 +89,67 @@ export class Exception<E extends IException = IAnyException> extends Error {
             // @ts-ignore
             if (typeof structuredClone === "function") return structuredClone(obj);
         } catch { }
-        try { return JSON.parse(JSON.stringify(obj)); } catch { return obj; }
+        try {
+            return JSON.parse(JSON.stringify(obj));
+        } catch {
+            return {
+                ...obj
+            }
+        }
+    }
+    private static VERSION_MAJOR: string = VERSION.split(".")[0];
+    static isExceptionPlan<E extends IException>(err: any): err is IExceptionPlan<E> {
+        let e: IExceptionPlan<IException> = err;
+        return !!(
+            typeof e === 'object'
+            && (typeof e.$exception) === 'string'
+            && e.$exception.split(".")[0] === Exception.VERSION_MAJOR       // major таарсан байх
+            && (typeof e?.message) === 'string'
+            && (typeof e.exception) === 'object'
+        )
+    }
+
+    static fromJSON<E extends IException>(plan: IExceptionPlan<E>): Exception<E> {
+        return new Exception<E>(plan.message, {
+            ...plan.exception,
+            cause: plan.cause && Exception.fromJSON(plan.cause)
+        });
     }
 
     private static resolve(src: any) {
 
-
         // Error type/category
-        const kind1: string | undefined =
-            src?.kind ??
-            src?.category ??
-            src?.errorType ??
-            src?.name ?? // fallback to Error name
-            undefined
+        const kind = (() => {
+            const k =
+                src?.kind ??
+                src?.category ??
+                src?.errorType ??
+                (typeof src?.name === 'string'
+                    ? src.name.endsWith('Exception')
+                        ? src.name.replace(/Exception$/, '')
+                        : src.name
+                    : undefined)
 
-        const kind: string | undefined =
-            (src?.kind) ??
-            (src?.category) ??
-            (src?.errorType) ??
-            (src?.name
-                ? src.name.endsWith("Exception")
-                    ? src.name.replace(/Exception$/, "").toLowerCase()
-                    : src?.name
-                : undefined
-            )
-            ;
+            return typeof k === 'string' ? k.toLowerCase() : undefined
+        })();
 
         // Error code variations
-        const cause = Exception.tryFrom(src?.cause);
-        const stack: string | undefined = src?.stack ? String(src?.stack) : undefined;
+        const cause = src?.cause && Exception.tryFrom(src?.cause);
+
 
         const code: string | number | undefined = (() => {
             if (typeof src?.code === 'number') return Number(src.code);
             if (typeof src?.code === 'string') return String(src.code);
             return undefined
         })();
-        const status: number | undefined = src?.status ? Number(src?.status) : undefined;
-        const help: string | undefined = src?.help ? String(src.help) : undefined;
-        const instance: string | undefined = src?.instance ? String(src?.instance) : undefined;
-        const trace_id: string | undefined = src?.trace_id ? String(src?.trace_id) : undefined;
+        const status = src?.status ? Number(src?.status) : undefined;
+        const help = src?.help ? String(src.help) : undefined;
+        const instance = src?.instance ? String(src?.instance) : undefined;
+        const trace_id = src?.trace_id ? String(src?.trace_id) : undefined;
+        const span_id = src?.span_id ? String(src?.span_id) : undefined;
+        const request_id = src?.request_id ? String(src?.request_id) : undefined;
 
-        return { kind, cause, stack, code, status, help, instance, trace_id };
-    }
-
-    static isExceptionPlan<E extends IException>(err: any): err is IExceptionPlan<E> {
-        let e: IExceptionPlan<IException> = err;
-        return !!(
-            typeof e === 'object'
-            && (typeof e?.$exception) === 'string'
-            && e.$exception.split(".")[0] === VERSION.split(".")[0]       // major таарсан байх
-            && e.error && typeof e?.error?.message === 'string'
-        )
+        return { kind, cause, code, status, help, instance, trace_id, span_id, request_id };
     }
 
     public static tryFrom<E extends IException>(err: any, customParser?: IExceptionParser<E>): Exception<E> | undefined {
@@ -159,49 +163,42 @@ export class Exception<E extends IException = IAnyException> extends Error {
         }
 
         if (err instanceof Error) {
-            const { kind, stack, cause, code, help, instance, status, trace_id } = Exception.resolve(err);
-            const e = new Exception<IException>({
-                kind, cause, code, help, instance, status, trace_id,
-                message: err.message,
-                source: err,
+            const { kind, cause, code, help, instance, status, trace_id, span_id, request_id } = Exception.resolve(err);
+            const e = new Exception<IException>(err.message, {
+                kind, cause, code, help, instance, status, trace_id, span_id, request_id,
+                source: err
             });
-
-            if (stack && typeof (e as any).stack === "string") (e as any).stack = stack;
-            return e as Exception<any>;
+            if (typeof err.stack === 'string') e.stack = err.stack;
+            return e as Exception<E>;
 
         }
 
         if (Exception.isExceptionPlan(err)) {
-            const e = new Exception<any>({
-                ...(err.error),
+            return new Exception<any>(err.message, {
+                ...err.exception,
                 cause: Exception.tryFrom(err.cause)
             });
-            return e;
         }
 
         if (typeof err === 'object' && (typeof err?.message) === 'string') {
-            const { kind, stack, cause, code, help, instance, status, trace_id } = Exception.resolve(err);
-            const e = new Exception<IException>({
-                kind, cause, code, help, instance, status, trace_id,
-                message: err.message,
+            const { kind, cause, code, help, instance, status, trace_id, span_id, request_id, } = Exception.resolve(err);
+            const e = new Exception<IException>(err.message, {
+                kind, cause, code, help, instance, status, trace_id, span_id, request_id,
                 source: err
             });
-            if (stack && typeof (e as any).stack === "string") (e as any).stack = stack;
-            return e as Exception<any>;
+            if (typeof err.stack === 'string') e.stack = err.stack;
+            return e as Exception<E>;
         }
 
         return undefined
     }
-    static fromJSON<E extends IException>(plan: IExceptionPlan<E>): Exception<E> {
-        return new Exception<E>({
-            ...plan.error,
-            cause: plan.cause && Exception.fromJSON(plan.cause)
-        });
-    }
-    public static from<E extends Exception>(err: any, customParser?: IExceptionParser<E>): Exception<E> {
-        return Exception.tryFrom(err, customParser) ?? new Exception<any>({
-            kind: "Unknown",
-            message: String(err ?? "Unknown error"),
+
+    public static from<E extends IException>(err: any, customParser?: IExceptionParser<E>): Exception<E> {
+        const e = Exception.tryFrom(err, customParser);
+        if (e instanceof Exception) return e;
+
+        return new Exception<any>(String(err ?? "Unknown error"), {
+            kind: 'unknown',
             source: err,
         })
     }
