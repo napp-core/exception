@@ -74,12 +74,14 @@ export class Exception<E extends IException = IException> extends Error {
         }))
     }
 
-    toJSON(): IExceptionPlan<E> {
+    toJSON(opt?: { includeStack?: boolean }): IExceptionPlan<E> & { name: string; stack?: string } {
         return {
+            name: this.name,
             message: this.message,
             $exception: VERSION,
             exception: this.exception,
             cause: Exception.tryFrom<any>(this.cause)?.toJSON(),
+            ...(opt?.includeStack && this.stack ? { stack: this.stack } : {})
         };
     }
 
@@ -180,9 +182,9 @@ export class Exception<E extends IException = IException> extends Error {
             });
         }
 
-        if (typeof err === 'object' && (typeof err?.message) === 'string') {
+        if (typeof err === 'object' && ((typeof err?.message) === 'string' || (typeof err?.error) === 'string')) {
             const { kind, cause, code, help, instance, status, trace_id, span_id, request_id, } = Exception.resolve(err);
-            const e = new Exception<IException>(err.message, {
+            const e = new Exception<IException>(err.message ?? err.error, {
                 kind, cause, code, help, instance, status, trace_id, span_id, request_id,
                 source: err
             });
